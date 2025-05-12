@@ -591,6 +591,9 @@ const Header = ({ title, setCurrentPage }) => {
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   const unreadCount = useMemo(() => {
     return notifications.filter(n => !n.read).length;
@@ -602,6 +605,68 @@ const Header = ({ title, setCurrentPage }) => {
 
   const handleMarkAllAsRead = () => {
     markAllAsRead();
+  };
+
+  const handleGlobalSearch = (searchTerm) => {
+    setGlobalSearch(searchTerm);
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    const term = searchTerm.toLowerCase();
+    const results = [
+      // Users
+      ...initialUsers.map(user => ({
+        type: 'user',
+        id: user.id,
+        title: user.name,
+        subtitle: user.email,
+        status: user.status,
+        path: 'users'
+      })),
+      // Jobs
+      ...initialJobVacancies.map(job => ({
+        type: 'job',
+        id: job.id,
+        title: job.title,
+        subtitle: job.department,
+        status: job.status,
+        path: 'jobs'
+      })),
+      // Tickets
+      ...initialTickets.map(ticket => ({
+        type: 'ticket',
+        id: ticket.id,
+        title: ticket.subject,
+        subtitle: ticket.customer,
+        status: ticket.status,
+        path: 'tickets'
+      })),
+      // Invoices
+      ...initialInvoices.map(invoice => ({
+        type: 'invoice',
+        id: invoice.id,
+        title: `Invoice ${invoice.id}`,
+        subtitle: invoice.customer,
+        status: invoice.status,
+        path: 'invoices'
+      }))
+    ].filter(item => 
+      item.title.toLowerCase().includes(term) ||
+      item.subtitle.toLowerCase().includes(term) ||
+      item.id.toString().toLowerCase().includes(term)
+    );
+
+    setSearchResults(results);
+    setShowSearchResults(true);
+  };
+
+  const handleResultClick = (result) => {
+    setCurrentPage(result.path);
+    setShowSearchResults(false);
+    setGlobalSearch('');
   };
 
   // Close notifications dropdown when clicking outside
@@ -628,19 +693,66 @@ const Header = ({ title, setCurrentPage }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isProfileDropdownOpen]);
 
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.search-container')) {
+        setShowSearchResults(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <header className="bg-white/80 backdrop-blur-sm border-b border-[#3554a6]/10 shadow-lg p-6 mb-6 sticky top-0 z-10">
       <div className="container mx-auto flex justify-between items-center">
         <h1 className="text-3xl font-semibold text-slate-700">{title}</h1>
         <div className="flex items-center space-x-4">
-          {/* Search input */}
-          <div className="relative">
+          {/* Global Search */}
+          <div className="relative search-container">
             <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search anything..."
+              value={globalSearch}
+              onChange={(e) => handleGlobalSearch(e.target.value)}
               className="pl-10 pr-4 py-2 w-64 border border-[#3554a6]/20 rounded-lg focus:ring-2 focus:ring-[#3554a6] focus:border-[#399b24] outline-none transition-all bg-white/50 backdrop-blur-sm hover:bg-white"
             />
+
+            {/* Search Results Dropdown */}
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="absolute mt-2 w-96 bg-white rounded-lg shadow-xl border border-slate-200 max-h-96 overflow-y-auto z-50">
+                {searchResults.map((result, index) => (
+                  <button
+                    key={`${result.type}-${result.id}-${index}`}
+                    onClick={() => handleResultClick(result)}
+                    className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-start justify-between group"
+                  >
+                    <div>
+                      <div className="flex items-center">
+                        {result.type === 'user' && <FiUser className="mr-2 text-slate-400" />}
+                        {result.type === 'job' && <FiBriefcase className="mr-2 text-slate-400" />}
+                        {result.type === 'ticket' && <FiMessageSquare className="mr-2 text-slate-400" />}
+                        {result.type === 'invoice' && <FiDollarSign className="mr-2 text-slate-400" />}
+                        <span className="font-medium text-slate-700">{result.title}</span>
+                      </div>
+                      <p className="text-sm text-slate-500">{result.subtitle}</p>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <StatusBadge status={result.status} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {showSearchResults && searchResults.length === 0 && globalSearch && (
+              <div className="absolute mt-2 w-96 bg-white rounded-lg shadow-xl border border-slate-200 p-4 text-center">
+                <p className="text-slate-500">No results found</p>
+              </div>
+            )}
           </div>
 
           {/* Notifications */}
