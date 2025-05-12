@@ -6,6 +6,34 @@ import {
   FiBell, FiSearch, FiCheck, FiX, FiClock, FiDownload, FiCamera
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 // --- Mock Data (Based on db.json) ---
 const initialUsers = [
@@ -559,9 +587,10 @@ const Sidebar = ({ currentPage, setCurrentPage }) => {
 };
 
 // Header Component (updated)
-const Header = ({ title }) => {
+const Header = ({ title, setCurrentPage }) => {
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   const unreadCount = useMemo(() => {
     return notifications.filter(n => !n.read).length;
@@ -586,6 +615,18 @@ const Header = ({ title }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isNotificationOpen]);
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isProfileDropdownOpen && !event.target.closest('.relative')) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfileDropdownOpen]);
 
   return (
     <header className="bg-white/80 backdrop-blur-sm border-b border-[#3554a6]/10 shadow-lg p-6 mb-6 sticky top-0 z-10">
@@ -668,13 +709,59 @@ const Header = ({ title }) => {
           </div>
 
           {/* User profile */}
-          <div className="flex items-center space-x-2">
-            <img
-              src="https://placehold.co/40x40/6366F1/FFFFFF?text=A"
-              alt="Admin Avatar"
-              className="w-10 h-10 rounded-full border-2 border-[#3554a6]"
-            />
-            <span className="text-slate-700 font-medium">Admin User</span>
+          <div className="relative">
+            <button
+              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+              className="flex items-center space-x-2 group"
+            >
+              <img
+                src="https://placehold.co/40x40/6366F1/FFFFFF?text=A"
+                alt="Admin Avatar"
+                className="w-10 h-10 rounded-full border-2 border-[#3554a6] group-hover:border-[#399b24] transition-colors"
+              />
+              <span className="text-slate-700 font-medium group-hover:text-[#3554a6]">Admin User</span>
+              <FiChevronDown className={`text-slate-400 transition-transform duration-200 ${
+                isProfileDropdownOpen ? 'transform rotate-180' : ''
+              }`} />
+            </button>
+
+            {isProfileDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-50 py-1 border border-slate-200">
+                <button
+                  onClick={() => {
+                    setIsProfileDropdownOpen(false);
+                    setCurrentPage('profile');
+                  }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <FiUser className="mr-2" size={16} />
+                  View Profile
+                </button>
+                <button
+                  onClick={() => {
+                    setIsProfileDropdownOpen(false);
+                    // Add settings functionality
+                  }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <FiSettings className="mr-2" size={16} />
+                  Settings
+                </button>
+                <div className="border-t border-slate-200 my-1"></div>
+                <button
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to logout?')) {
+                      // Add logout functionality
+                      console.log('Logging out...');
+                    }
+                  }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <FiLogOut className="mr-2" size={16} />
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -684,9 +771,72 @@ const Header = ({ title }) => {
 
 // --- Page Components (as provided, or reconstructed) ---
 
-// Dashboard Page (as provided)
+// Dashboard Page (updated with charts)
 const DashboardPage = ({ users, jobs, tickets, invoices }) => {
-   const stats = [
+  // Chart data and options
+  const revenueData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Revenue',
+        data: [12000, 19000, 15000, 25000, 22000, 30000],
+        fill: true,
+        backgroundColor: 'rgba(53, 84, 166, 0.1)',
+        borderColor: '#3554a6',
+        tension: 0.4,
+      },
+      {
+        label: 'Expenses',
+        data: [8000, 15000, 10000, 18000, 15000, 22000],
+        fill: true,
+        backgroundColor: 'rgba(57, 155, 36, 0.1)',
+        borderColor: '#399b24',
+        tension: 0.4,
+      }
+    ]
+  };
+
+  const ticketStatusData = {
+    labels: ['Open', 'In Progress', 'Closed'],
+    datasets: [
+      {
+        data: [
+          tickets.filter(t => t.status === 'Open').length,
+          tickets.filter(t => t.status === 'In Progress').length,
+          tickets.filter(t => t.status === 'Closed').length,
+        ],
+        backgroundColor: [
+          '#3554a6',
+          '#399b24',
+          '#64748b',
+        ],
+        borderWidth: 0,
+      }
+    ]
+  };
+
+  const userActivityData = {
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [
+      {
+        label: 'Active Users',
+        data: [65, 59, 80, 81, 56, 55, 40],
+        backgroundColor: '#3554a6',
+      }
+    ]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+    },
+  };
+
+  const stats = [
     { title: 'Total Users', value: users.length, change: '+12%', icon: <FiUsers size={24} />, color: 'bg-indigo-100 text-indigo-600' },
     { title: 'Active Jobs', value: jobs.filter(job => job.status === 'Open').length, change: '+5%', icon: <FiBriefcase size={24} />, color: 'bg-green-100 text-green-600' },
     { title: 'Pending Tickets', value: tickets.filter(ticket => ticket.status !== 'Closed').length, change: '-3%', icon: <FiMessageSquare size={24} />, color: 'bg-yellow-100 text-yellow-600' },
@@ -736,9 +886,34 @@ const DashboardPage = ({ users, jobs, tickets, invoices }) => {
         ))}
       </div>
 
-      {/* Recent Activities */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Chart */}
+        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-[#3554a6]/10">
+          <h3 className="text-xl font-semibold text-slate-700 mb-4">Revenue Overview</h3>
+          <div className="h-80">
+            <Line data={revenueData} options={chartOptions} />
+          </div>
+        </div>
+
+        {/* User Activity Chart */}
+        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-[#3554a6]/10">
+          <h3 className="text-xl font-semibold text-slate-700 mb-4">User Activity</h3>
+          <div className="h-80">
+            <Bar data={userActivityData} options={chartOptions} />
+          </div>
+        </div>
+
+        {/* Ticket Status Chart */}
+        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-[#3554a6]/10">
+          <h3 className="text-xl font-semibold text-slate-700 mb-4">Ticket Status Distribution</h3>
+          <div className="h-80">
+            <Doughnut data={ticketStatusData} options={chartOptions} />
+          </div>
+        </div>
+
+        {/* Recent Activities */}
+        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-[#3554a6]/10">
           <h3 className="text-xl font-semibold text-slate-700 mb-4">Recent Activities</h3>
           <div className="space-y-4">
             {recentActivities.map(activity => (
@@ -754,55 +929,6 @@ const DashboardPage = ({ users, jobs, tickets, invoices }) => {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-xl font-semibold text-slate-700 mb-4">Quick Stats</h3>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Active Users</p>
-              <div className="mt-2 w-full bg-slate-200 rounded-full h-2.5">
-                <div
-                  className="bg-indigo-600 h-2.5 rounded-full"
-                  style={{ width: `${(users.filter(u => u.status === 'active').length / users.length) * 100}%` }}
-                ></div>
-              </div>
-              <p className="text-sm text-slate-700 mt-1">
-                {users.filter(u => u.status === 'active').length} / {users.length} active
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">Job Status</p>
-              <div className="mt-2 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Open Positions</span>
-                  <span>{jobs.filter(j => j.status === 'Open').length}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Closed Positions</span>
-                  <span>{jobs.filter(j => j.status === 'Closed').length}</span>
-                </div>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">Ticket Priority</p>
-              <div className="mt-2 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>High Priority</span>
-                  <span>{tickets.filter(t => t.priority === 'High').length}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Medium Priority</span>
-                  <span>{tickets.filter(t => t.priority === 'Medium').length}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Low Priority</span>
-                  <span>{tickets.filter(t => t.priority === 'Low').length}</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -988,7 +1114,7 @@ const UserListPage = ({ users, setUsers }) => {
             </button>
           </div>
         )}
-         {users.length === 0 && initialUsers.length > 0 && searchTerm === '' && (
+         {users.length === 0 && initialUsers.length > 0 && (
              <div className="text-center py-8">
                 <p className="text-slate-500">All users have been deleted.</p>
              </div>
@@ -1867,7 +1993,6 @@ const PaymentsPage = ({ payments }) => {
 // Admin Profile Page (Updated)
 const AdminProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
-  const { addNotification } = useNotifications();
   const [formData, setFormData] = useState({
     name: 'Admin User',
     email: 'admin@example.com',
@@ -1875,28 +2000,13 @@ const AdminProfilePage = () => {
     phone: '+1 (555) 123-4567',
     location: 'New York, USA',
     bio: 'Experienced administrator with a focus on system optimization and team management.',
-    avatar: 'https://placehold.co/200x200/3554a6/FFFFFF?text=A',
-    stats: {
-      ticketsResolved: 145,
-      usersManaged: 234,
-      totalActions: 1456,
-      activeProjects: 12
-    },
-    preferences: {
-      emailNotifications: true,
-      pushNotifications: true,
-      twoFactorAuth: true,
-      darkMode: false
-    }
+    avatar: 'https://placehold.co/200x200/6366F1/FFFFFF?text=A'
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    addNotification({
-      type: 'success',
-      message: 'Profile updated successfully'
-    });
     setIsEditing(false);
+    // Add actual update logic here
   };
 
   return (
@@ -1907,36 +2017,52 @@ const AdminProfilePage = () => {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      {/* Profile Header */}
       <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-[#3554a6]/10">
-        <div className="flex flex-col md:flex-row gap-6">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative group">
-              <img
-                src={formData.avatar}
-                alt={formData.name}
-                className="w-32 h-32 rounded-full object-cover border-4 border-[#3554a6]"
-              />
-              {isEditing && (
-                <button className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <FiCamera className="text-white text-2xl" />
-                </button>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-semibold text-slate-700">Profile Details</h2>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsEditing(!isEditing)}
+            className="flex items-center px-4 py-2 bg-gradient-to-r from-[#3554a6] to-[#399b24] hover:from-[#399b24] hover:to-[#3554a6] text-white rounded-lg"
+          >
+            {isEditing ? (
+              <>
+                <FiX className="mr-2" /> Cancel
+              </>
+            ) : (
+              <>
+                <FiEdit2 className="mr-2" /> Edit Profile
+              </>
+            )}
+          </motion.button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-1">
+            <div className="space-y-4">
+              <div className="relative group">
+                <img
+                  src={formData.avatar}
+                  alt="Admin Avatar"
+                  className="w-full rounded-xl shadow-lg border-4 border-[#3554a6]/20"
+                />
+                {isEditing && (
+                  <button className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                    <FiCamera className="text-white text-2xl" />
+                  </button>
+                )}
+              </div>
+              {!isEditing && (
+                <div className="bg-[#3554a6]/5 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-[#3554a6] mb-2">Role</h3>
+                  <p className="text-slate-600">{formData.role}</p>
+                </div>
               )}
             </div>
-            {!isEditing ? (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-gradient-to-r from-[#3554a6] to-[#399b24] text-white rounded-lg hover:from-[#399b24] hover:to-[#3554a6] transition-all duration-300"
-              >
-                <FiEdit2 className="inline-block mr-2" />
-                Edit Profile
-              </motion.button>
-            ) : null}
           </div>
 
-          <div className="flex-1 space-y-6">
+          <div className="md:col-span-2">
             {isEditing ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1945,8 +2071,8 @@ const AdminProfilePage = () => {
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="mt-1 block w-full border border-[#3554a6]/20 rounded-lg focus:ring-2 focus:ring-[#3554a6] focus:border-[#399b24] transition-all duration-300"
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="mt-1 block w-full border border-slate-300 rounded-lg px-4 py-2"
                     />
                   </div>
                   <div>
@@ -1954,17 +2080,17 @@ const AdminProfilePage = () => {
                     <input
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="mt-1 block w-full border border-[#3554a6]/20 rounded-lg focus:ring-2 focus:ring-[#3554a6] focus:border-[#399b24] transition-all duration-300"
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="mt-1 block w-full border border-slate-300 rounded-lg px-4 py-2"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700">Phone</label>
                     <input
-                      type="tel"
+                      type="text"
                       value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      className="mt-1 block w-full border border-[#3554a6]/20 rounded-lg focus:ring-2 focus:ring-[#3554a6] focus:border-[#399b24] transition-all duration-300"
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="mt-1 block w-full border border-slate-300 rounded-lg px-4 py-2"
                     />
                   </div>
                   <div>
@@ -1972,8 +2098,8 @@ const AdminProfilePage = () => {
                     <input
                       type="text"
                       value={formData.location}
-                      onChange={(e) => setFormData({...formData, location: e.target.value})}
-                      className="mt-1 block w-full border border-[#3554a6]/20 rounded-lg focus:ring-2 focus:ring-[#3554a6] focus:border-[#399b24] transition-all duration-300"
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      className="mt-1 block w-full border border-slate-300 rounded-lg px-4 py-2"
                     />
                   </div>
                 </div>
@@ -1981,104 +2107,47 @@ const AdminProfilePage = () => {
                   <label className="block text-sm font-medium text-slate-700">Bio</label>
                   <textarea
                     value={formData.bio}
-                    onChange={(e) => setFormData({...formData, bio: e.target.value})}
-                    rows={4}
-                    className="mt-1 block w-full border border-[#3554a6]/20 rounded-lg focus:ring-2 focus:ring-[#3554a6] focus:border-[#399b24] transition-all duration-300"
-                  />
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    rows="4"
+                    className="mt-1 block w-full border border-slate-300 rounded-lg px-4 py-2"
+                  ></textarea>
                 </div>
                 <div className="flex justify-end space-x-3">
                   <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 border border-[#3554a6]/20 rounded-lg hover:bg-[#3554a6]/5"
-                  >
-                    Cancel
-                  </button>
-                  <button
                     type="submit"
-                    className="px-4 py-2 bg-gradient-to-r from-[#3554a6] to-[#399b24] text-white rounded-lg hover:from-[#399b24] hover:to-[#3554a6] transition-all duration-300"
+                    className="px-4 py-2 bg-gradient-to-r from-[#3554a6] to-[#399b24] text-white rounded-lg"
                   >
                     Save Changes
                   </button>
                 </div>
               </form>
             ) : (
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-800">{formData.name}</h2>
-                  <p className="text-[#3554a6] font-medium">{formData.role}</p>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-500">Name</h3>
+                    <p className="mt-1 text-slate-900">{formData.name}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-500">Email</h3>
+                    <p className="mt-1 text-slate-900">{formData.email}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-500">Phone</h3>
+                    <p className="mt-1 text-slate-900">{formData.phone}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-500">Location</h3>
+                    <p className="mt-1 text-slate-900">{formData.location}</p>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-slate-500">Email</p>
-                    <p className="font-medium">{formData.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Phone</p>
-                    <p className="font-medium">{formData.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Location</p>
-                    <p className="font-medium">{formData.location}</p>
-                  </div>
-                </div>
                 <div>
-                  <p className="text-slate-500">Bio</p>
-                  <p className="mt-1">{formData.bio}</p>
+                  <h3 className="text-sm font-semibold text-slate-500">Bio</h3>
+                  <p className="mt-1 text-slate-900">{formData.bio}</p>
                 </div>
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {Object.entries(formData.stats).map(([key, value]) => (
-          <motion.div
-            key={key}
-            whileHover={{ y: -5, scale: 1.02 }}
-            className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-[#3554a6]/10"
-          >
-            <h3 className="text-sm font-medium text-slate-500 capitalize">{key.replace(/([A-Z])/g, ' $1')}</h3>
-            <p className="text-2xl font-bold mt-2">{value}</p>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Preferences */}
-      <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-[#3554a6]/10">
-        <h3 className="text-lg font-semibold text-slate-700 mb-4">Preferences</h3>
-        <div className="space-y-4">
-          {Object.entries(formData.preferences).map(([key, value]) => (
-            <div key={key} className="flex items-center justify-between">
-              <span className="text-sm font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={value}
-                  onChange={() => {
-                    if (isEditing) {
-                      setFormData({
-                        ...formData,
-                        preferences: {
-                          ...formData.preferences,
-                          [key]: !value
-                        }
-                      });
-                    }
-                  }}
-                  disabled={!isEditing}
-                  className="sr-only peer"
-                />
-                <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#3554a6]/20 rounded-full peer 
-                  ${value ? 'bg-gradient-to-r from-[#3554a6] to-[#399b24]' : ''} 
-                  after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 
-                  after:transition-all peer-checked:after:translate-x-full`}>
-                </div>
-              </label>
-            </div>
-          ))}
         </div>
       </div>
     </motion.div>
@@ -2136,7 +2205,7 @@ function App() {
       <div className="flex min-h-screen bg-gradient-to-br from-[#3554a6]/5 to-[#399b24]/5">
         <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
         <div className="flex-1 flex flex-col md:ml-64"> {/* Add ml-64 to main content on medium+ screens */}
-          <Header title={currentPageTitle} />
+          <Header title={currentPageTitle} setCurrentPage={setCurrentPage} />
           <main className="flex-1 p-6 overflow-y-auto">
             <AnimatePresence mode="wait">
               {renderPage()}
